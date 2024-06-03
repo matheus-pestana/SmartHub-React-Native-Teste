@@ -1,29 +1,90 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import {View, Text} from 'react-native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { Ionicons } from '@expo/vector-icons';
+import { View, Text } from 'react-native';
+
+import Home from '../pages/home.js';
+import Login from '../pages/login.js';
+import Salvos from '../pages/salvos.js';
+import Continuar from '../pages/continuar.js'
 
 const Tab = createBottomTabNavigator();
 
-export default function MyTabs() {
-  return (
-    <Tab.Navigator>
-      <Tab.Screen name="Home" component={HomeScreen} />
-      <Tab.Screen name="Settings" component={SettingsScreen} />
-    </Tab.Navigator>
-  );
+function MyTabs() {
+    return (
+        <Tab.Navigator
+            initialRouteName='Home'
+            screenOptions={{
+                tabBarStyle: { backgroundColor: 'black', borderTopColor: '#5D21A7' },
+                tabBarActiveTintColor: "#5D21A7",
+                tabBarInactiveTintColor: "#5D21A7",
+            }}>
+            <Tab.Screen name="Home" component={Home}
+                options={{
+                    headerShown: false,
+                    tabBarIcon: ({ focused, size, color }) => {
+                        if (focused) {
+                            return (<Ionicons
+                                size={size}
+                                color={color}
+                                name='home-sharp'
+                            />);
+                        } return (<Ionicons
+                            size={size}
+                            color={color}
+                            name='home-outline'
+                        />)
+                    }
+                }} />
+            <Tab.Screen name="Continuar" component={Continuar}
+                options={{
+                    headerShown: false,
+                    tabBarIcon: ({ focused, size, color }) => {
+                        if (focused) {
+                            return (<Ionicons
+                                size={size}
+                                color={color}
+                                name='play-circle'
+                            />);
+                        } return (<Ionicons
+                            size={size}
+                            color={color}
+                            name='play-circle-outline'
+                        />)
+                    }
+                }} />
+            <Tab.Screen name="Salvos" component={Salvos}
+                options={{
+                    headerShown: false,
+                    tabBarIcon: ({ focused, size, color }) => {
+                        if (focused) {
+                            return (<Ionicons
+                                size={size}
+                                color={color}
+                                name='bookmark'
+                            />);
+                        } return (<Ionicons
+                            size={size}
+                            color={color}
+                            name='bookmark-outline'
+                        />)
+                    }
+                }} />
+        </Tab.Navigator>
+    );
 }
 
-function HomeScreen() {
-    return (
-        <View>
-            <Text>Careca</Text>
-        </View>
-    )
-}
+const Stack = createNativeStackNavigator();
 
-function SettingsScreen() {
+export default function MyStack() {
+
     return (
-        <View>
-            <Text>A</Text>
-        </View>
-    )
+        <Stack.Navigator
+            screenOptions={{
+                headerShown: false,
+            }}>
+            <Stack.Screen name="Login" component={Login} />
+            <Stack.Screen name="Home" component={MyTabs} />
+        </Stack.Navigator>
+    );
 }
