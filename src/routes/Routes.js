@@ -6,8 +6,8 @@ import { View, Text } from 'react-native';
 import Home from '../pages/home.js';
 import Login from '../pages/login.js';
 import Salvos from '../pages/salvos.js';
-import Continuar from '../pages/continuar.js'
-
+import Continuar from '../pages/continuar.js';
+import Cadastro from '../pages/cadastro.js';
 const Tab = createBottomTabNavigator();
 
 function MyTabs() {
@@ -80,10 +80,12 @@ export default function MyStack() {
 
     return (
         <Stack.Navigator
+        initialRouteName='Login'
             screenOptions={{
                 headerShown: false,
             }}>
             <Stack.Screen name="Login" component={Login} />
+            <Stack.Screen name="Cadastro" component={Cadastro} />
             <Stack.Screen name="Home" component={MyTabs} />
         </Stack.Navigator>
     );
