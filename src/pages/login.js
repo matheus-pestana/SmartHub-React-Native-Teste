@@ -17,7 +17,7 @@ const LoginPage = () => {
         signInWithEmailAndPassword(auth, email, password)
             .then(userCredential => {
                 console.log('Login bem-sucedido!', userCredential.user);
-                navigation.navigate('Home');
+                navigation.navigate('Main');
             })
             .catch(error => {
                 Alert.alert(

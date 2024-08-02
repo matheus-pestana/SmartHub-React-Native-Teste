@@ -1,11 +1,15 @@
-import React from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, Image, Dimensions, TouchableOpacity, Alert } from 'react-native';
+import React, { useCallback, useState } from 'react';
+import { View, Text, StyleSheet, SafeAreaView, ScrollView, Image, Dimensions, ActivityIndicator } from 'react-native';
+import YoutubeIframe from 'react-native-youtube-iframe';
+import * as ScreenOrientation from 'expo-screen-orientation';
 
 const windowWidth = Dimensions.get('window').width;
 const windowHeight = Dimensions.get('window').height;
 
 
 export default function Home() {
+
+  const [videoReady, setVideoReady] = useState(false);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -16,6 +20,16 @@ export default function Home() {
           source={require('../assets/logo.png')}
         />
       </View>
+      <View>
+        <YoutubeIframe
+          videoId='HKKEqzDaaDs'
+          width={windowWidth}
+          height={windowHeight}
+          onReady={() => setVideoReady(true)}
+        />
+        {!videoReady && <ActivityIndicator color='#5D21A7'/>}
+      </View>
+
     </SafeAreaView>
   )
 }

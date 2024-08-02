@@ -86,7 +86,7 @@ export default function MyStack() {
             }}>
             <Stack.Screen name="Login" component={Login} />
             <Stack.Screen name="Cadastro" component={Cadastro} />
-            <Stack.Screen name="Home" component={MyTabs} />
+            <Stack.Screen name="Main" component={MyTabs} />
         </Stack.Navigator>
     );
 }
