@@ -1,13 +1,14 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
-import { View, Text } from 'react-native';
 
 import Home from '../pages/home.js';
 import Login from '../pages/login.js';
 import Salvos from '../pages/salvos.js';
 import Continuar from '../pages/continuar.js';
 import Cadastro from '../pages/cadastro.js';
+import Perfil from '../pages/perfil.js';
+
 const Tab = createBottomTabNavigator();
 
 function MyTabs() {
@@ -87,6 +88,7 @@ export default function MyStack() {
             <Stack.Screen name="Login" component={Login} />
             <Stack.Screen name="Cadastro" component={Cadastro} />
             <Stack.Screen name="Main" component={MyTabs} />
+            <Stack.Screen name="Perfil" component={Perfil} />
         </Stack.Navigator>
     );
 }
