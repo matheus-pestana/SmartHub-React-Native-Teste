@@ -2,37 +2,49 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, ScrollView, Dimensions, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { auth } from '../../firebaseConfig';
+import { auth } from '../../firebaseConfig';  // Importa a configuração do Auth
 import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { db } from '../../firebaseConfig';  // Importa a configuração do Firestore
+import { doc, setDoc } from 'firebase/firestore';  // Funções Firestore
 
 const windowWidth = Dimensions.get('window').width;
 const windowHeight = Dimensions.get('window').height;
 
 const Cadastro = () => {
+    const [name, setName] = useState('');  // Estado para o nome
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const navigation = useNavigation();
 
-    const handleSignUp = () => {
+    const handleSignUp = async () => {
         if (password !== confirmPassword) {
             Alert.alert('Erro', 'As senhas não coincidem.', [{ text: 'OK' }]);
             return;
         }
 
-        createUserWithEmailAndPassword(auth, username, password)
-            .then(userCredential => {
-                console.log('Cadastro bem-sucedido!', userCredential.user);
-                navigation.navigate('Login');
-            })
-            .catch(error => {
-                Alert.alert(
-                    'Erro no cadastro',
-                    `Ocorreu um erro ao tentar criar sua conta. ${error.message}`,
-                    [{ text: 'OK' }]
-                );
-            });
+        try {
+            const userCredential = await createUserWithEmailAndPassword(auth, username, password);
+            console.log('Cadastro bem-sucedido!', userCredential.user);
 
+            // Adiciona o usuário ao Firestore
+            await setDoc(doc(db, 'users', userCredential.user.uid), {
+                name: name,
+                email: username,
+                // Evite salvar a senha em texto puro; considere usar criptografia
+            });
+            console.log('Dados do usuário salvos no Firestore!');
+
+            navigation.navigate('Login');
+        } catch (error) {
+            Alert.alert(
+                'Erro no cadastro',
+                `Ocorreu um erro ao tentar criar sua conta. ${error.message}`,
+                [{ text: 'OK' }]
+            );
+        }
+
+        setName('');  // Limpa o campo de nome
         setUsername('');
         setPassword('');
         setConfirmPassword('');
@@ -52,6 +64,13 @@ const Cadastro = () => {
                     </View>
 
                     <View style={styles.container}>
+                        <Text style={styles.title}>Nome</Text>
+                        <TextInput
+                            style={styles.input}
+                            placeholder="Insira seu nome"
+                            value={name}
+                            onChangeText={(text) => setName(text)}
+                        />
                         <Text style={styles.title}>E-mail</Text>
                         <TextInput
                             style={styles.input}
@@ -103,7 +122,6 @@ const styles = StyleSheet.create({
 
     main: {
         flex: 1,
-        gap: 20,
         justifyContent: 'center',
         alignItems: 'center',
         height: windowHeight,
@@ -140,7 +158,7 @@ const styles = StyleSheet.create({
         height: 45,
         borderColor: 'gray',
         borderWidth: .5,
-        marginBottom: 20,
+        marginBottom: 10,
         backgroundColor: 'white',
         borderRadius: 10,
         shadowColor: '#000',

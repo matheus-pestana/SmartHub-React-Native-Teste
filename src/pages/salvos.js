@@ -1,44 +1,131 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, Image, Dimensions, TouchableOpacity, Alert } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, SafeAreaView, Image, ActivityIndicator, Pressable, TextInput, FlatList, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { getFirestore, doc, onSnapshot, arrayRemove, updateDoc } from 'firebase/firestore';
+import { Video } from 'expo-av';
+import { useNavigation } from '@react-navigation/native';
+import { getAuth, onAuthStateChanged } from 'firebase/auth';
 
-const windowWidth = Dimensions.get('window').width;
-const windowHeight = Dimensions.get('window').height;
+const auth = getAuth();
 
-export default function Salvos() {
+export default function SalvosScreen() {
+    const [searchVisible, setSearchVisible] = useState(false);
+    const [searchText, setSearchText] = useState('');
+    const [loading, setLoading] = useState(true);
+    const [videosSalvos, setVideosSalvos] = useState([]);
+    const [modalVisible, setModalVisible] = useState(false);
+    const [selectedVideo, setSelectedVideo] = useState(null);
 
-    const [isLoggedIn, setIsLoggedIn] = useState(false);
     const navigation = useNavigation();
 
-    const handleLogout = () => {
-        Alert.alert(
-            'Logout',
-            'Tem certeza de que deseja sair?',
-            [
-                {
-                    text: 'Cancelar',
-                    style: 'cancel',
-                },
-                {
-                    text: 'Sair',
-                    onPress: () => {
-                        setIsLoggedIn(false);
-                        console.log('Logout realizado com sucesso!');
-                        navigation.navigate('Login');
-                    },
-                },
-            ],
-            { cancelable: false }
-        );
+    useEffect(() => {
+        const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+            if (!user) {
+                // Se o usuário não estiver logado, redireciona para a tela de Login
+                navigation.navigate('Login');
+            } else {
+                // Se o usuário estiver logado, busca os vídeos salvos
+                const userId = user.uid;
+                const db = getFirestore();
+                const userRef = doc(db, 'users', userId);
+
+                const unsubscribeUser = onSnapshot(userRef, (userSnap) => {
+                    if (userSnap.exists()) {
+                        const { salvos } = userSnap.data();
+                        setVideosSalvos(salvos || []);
+                    }
+                    setLoading(false);
+                });
+
+                // Limpeza da snapshot do Firestore
+                return () => unsubscribeUser();
+            }
+        });
+
+        // Limpeza do listener de autenticação
+        return () => unsubscribeAuth();
+    }, [navigation]);
+
+    const handleVideoPress = (video) => {
+        setSelectedVideo(video);
+        setModalVisible(true);
     };
+
+    const renderVideoItem = ({ item }) => (
+        <Pressable onPress={() => handleVideoPress(item)} style={styles.videoContainer}>
+            <Video
+                source={{ uri: item.videoUrl }}
+                style={styles.video}
+                useNativeControls
+                resizeMode="contain"
+            />
+            <Text style={styles.videoTitle}>{item.title}</Text>
+        </Pressable>
+    );
+
+    const handleRemoveVideo = async () => {
+        if (!selectedVideo) return;
+
+        try {
+            const userId = auth.currentUser.uid;
+            const db = getFirestore();
+            const userRef = doc(db, 'users', userId);
+
+            await updateDoc(userRef, {
+                salvos: arrayRemove(selectedVideo)
+            });
+
+            setVideosSalvos((prevVideos) =>
+                prevVideos.filter(video => video.videoId !== selectedVideo.videoId)
+            );
+
+            setModalVisible(false);
+            setSelectedVideo(null);
+        } catch (error) {
+            console.error("Erro ao remover vídeo:", error);
+        }
+    };
+
+    const renderModal = () => (
+        <Modal
+            visible={modalVisible}
+            transparent={true}
+            animationType="slide"
+            onRequestClose={() => setModalVisible(false)}
+        >
+            <View style={styles.modalContainer}>
+                <View style={styles.modalContent}>
+                    {selectedVideo ? (
+                        <>
+                            <Video
+                                source={{ uri: selectedVideo.videoUrl }}
+                                style={styles.modalVideo}
+                                resizeMode="contain"
+                                useNativeControls
+                            />
+                            <Text style={styles.modalTitle}>{selectedVideo.title}</Text>
+                            <Pressable onPress={handleRemoveVideo} style={styles.removeButton}>
+                                <Ionicons name="trash-bin-outline" size={24} color="white" />
+                            </Pressable>
+                            <Pressable onPress={() => setModalVisible(false)} style={styles.closeButton}>
+                                <Ionicons name="close-circle" size={32} color="white" />
+                            </Pressable>
+                        </>
+                    ) : (
+                        <ActivityIndicator size="large" color="#0000ff" />
+                    )}
+                </View>
+            </View>
+        </Modal>
+    );
 
     return (
         <SafeAreaView style={styles.container}>
             <View style={styles.topBar}>
-
                 <View style={styles.icons}>
-                    <Ionicons name="list-outline" size={28} color="white" style={styles.icon} />
+                    <Pressable>
+                        <Ionicons name="list-outline" size={28} color="black" style={styles.icon} />
+                    </Pressable>
                 </View>
 
                 <Image
@@ -48,27 +135,35 @@ export default function Salvos() {
                 />
 
                 <View style={styles.icons}>
-                    <Ionicons name="search-outline" size={28} color="white" style={styles.profileIcon} />
-                    <Ionicons name="person-circle" size={28} color="white" style={styles.profileIcon} />
+                    <Pressable>
+                        <Ionicons name="search-outline" size={28} color="black" style={styles.profileIcon} />
+                    </Pressable>
+                    <Pressable onPress={() => navigation.navigate('Perfil')}>
+                        <Ionicons name="person-circle" size={28} color="white" style={styles.profileIcon} />
+                    </Pressable>
                 </View>
-
             </View>
 
-            <View style={styles.content}>
-                <Text style={styles.text}>Em breve...</Text>
+            <View style={styles.videos}>
+                {loading ? (
+                    <ActivityIndicator size="large" color="#5D21A7" />
+                ) : (
+                    <FlatList
+                        data={videosSalvos}
+                        keyExtractor={(item) => item.videoId}
+                        renderItem={renderVideoItem}
+                    // contentContainerStyle={{ alignItems: 'center' }}
+                    />
+                )}
             </View>
+
+            {/* Render Modal */}
+            {renderModal()}
         </SafeAreaView>
-    )
+    );
 }
 
 const styles = StyleSheet.create({
-
-    container: {
-        paddingVertical: 20,
-        backgroundColor: 'black',
-        flex: 1,
-    },
-
     topBar: {
         flexDirection: 'row',
         justifyContent: 'center',
@@ -92,16 +187,82 @@ const styles = StyleSheet.create({
         gap: 20,
     },
 
-    content: {
+    searchInput: {
+        height: 40,
+        borderColor: '#5D21A7',
+        borderWidth: 1,
+        borderRadius: 5,
+        paddingLeft: 10,
+        color: 'white',
+        margin: 10,
+        backgroundColor: 'black',
+    },
+
+    container: {
+        paddingVertical: 30,
+        backgroundColor: 'black',
+        flex: 1,
+    },
+
+    videos: {
+        padding: 20,
+        justifyContent: 'center',
+    },
+
+    videoContainer: {
+        marginBottom: 20,
+        borderRadius: 10,
+        backgroundColor: '#5D21A7',
+        padding: 10,
+    },
+
+    video: {
+        width: '100%',
+        height: 200,
+        borderRadius: 10,
+    },
+
+    videoTitle: {
+        color: 'white',
+        textAlign: 'center',
+        marginTop: 10,
+    },
+
+    modalContainer: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
+        backgroundColor: 'rgba(0,0,0,0.5)',
     },
 
-    text: {
-        color: 'white',
-        fontSize: 40,
-        fontWeight: 'bold',
-    }
+    modalContent: {
+        backgroundColor: 'white',
+        padding: 20,
+        borderRadius: 10,
+        width: '80%',
+        alignItems: 'center',
+    },
 
-})
+    modalTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        marginBottom: 10,
+    },
+
+    removeButton: {
+        backgroundColor: '#D32F2F',
+        padding: 10,
+        borderRadius: 5,
+        marginBottom: 10,
+        width: '100%',
+        alignItems: 'center',
+    },
+
+    closeButton: {
+        backgroundColor: '#5D21A7',
+        padding: 10,
+        borderRadius: 5,
+        width: '100%',
+        alignItems: 'center',
+    },
+});

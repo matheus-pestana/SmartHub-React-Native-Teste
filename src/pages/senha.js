@@ -1,54 +1,38 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, ScrollView, Dimensions, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { auth } from '../../firebaseConfig';
-import { signInWithEmailAndPassword, onAuthStateChanged } from 'firebase/auth';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { sendPasswordResetEmail } from 'firebase/auth';
 
 const windowWidth = Dimensions.get('window').width;
 const windowHeight = Dimensions.get('window').height;
 
-const LoginPage = () => {
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
+const Senha = () => {
     const navigation = useNavigation();
+    const [email, setEmail] = useState('');
 
-    useEffect(() => {
-        const checkSession = async () => {
-            const storedUser = await AsyncStorage.getItem('@user_token');
-            if (storedUser) {
-                navigation.navigate('Main');
+    const handlePasswordReset = async () => {
+        if (!email) {
+            Alert.alert('Erro', 'Por favor, insira seu e-mail');
+            return;
+        }
+
+        try {
+            // Envia o e-mail de redefinição de senha
+            await sendPasswordResetEmail(auth, email);
+            Alert.alert('Sucesso', 'E-mail de redefinição de senha enviado!');
+            navigation.navigate('Login'); // Redireciona para a tela de login após sucesso
+        } catch (error) {
+            console.error('Erro ao enviar e-mail de redefinição de senha: ', error);
+            if (error.code === 'auth/user-not-found') {
+                Alert.alert('Erro', 'Usuário não encontrado');
+            } else if (error.code === 'auth/invalid-email') {
+                Alert.alert('Erro', 'E-mail inválido');
             } else {
-                const unsubscribe = onAuthStateChanged(auth, (user) => {
-                    if (user) {
-                        navigation.navigate('Main');
-                    }
-                });
-                return unsubscribe;
+                Alert.alert('Erro', 'Erro ao enviar e-mail de redefinição de senha');
             }
-        };
-
-        checkSession();
-    }, []);
-
-    const handleLogin = () => {
-        signInWithEmailAndPassword(auth, email, password)
-            .then(async (userCredential) => {
-                console.log('Login bem-sucedido!', userCredential.user);
-                await AsyncStorage.setItem('@user_token', userCredential.user.uid); // Armazena o token
-                navigation.navigate('Main');
-            })
-            .catch(error => {
-                Alert.alert(
-                    'Erro no login',
-                    `Ocorreu um erro ao tentar entrar. ${error.message}`,
-                    [{ text: 'OK' }]
-                );
-            });
-
-        setEmail('');
-        setPassword('');
+        }
     };
 
     return (
@@ -62,7 +46,7 @@ const LoginPage = () => {
                     />
 
                     <View style={styles.login}>
-                        <Text style={styles.pageTitle}>Login</Text>
+                        <Text style={styles.pageTitle}>Alterar senha</Text>
                     </View>
 
                     <View style={styles.container}>
@@ -75,22 +59,11 @@ const LoginPage = () => {
                             keyboardType="email-address"
                             autoCapitalize="none"
                         />
-                        <Text style={styles.title}>Senha</Text>
-                        <TextInput
-                            style={styles.input}
-                            placeholder="Insira sua senha"
-                            value={password}
-                            onChangeText={(text) => setPassword(text)}
-                            secureTextEntry
-                        />
-                        <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
-                            <Text style={styles.buttonText}>Login</Text>
+                        <TouchableOpacity style={styles.loginButton} onPress={handlePasswordReset}>
+                            <Text style={styles.buttonText}>Enviar e-mail de redefinição</Text>
                         </TouchableOpacity>
-                        <TouchableOpacity style={styles.loginButton} onPress={() => navigation.navigate('Cadastro')}>
-                            <Text style={styles.buttonText}>Cadastrar-se</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={styles.senhaButton} onPress={() => navigation.navigate('Senha')}>
-                            <Text style={styles.senhaText}>Alterar senha</Text>
+                        <TouchableOpacity style={styles.resetPassword} onPress={() => navigation.navigate('Login')}>
+                            <Text style={styles.resetPasswordText}>Retornar ao login</Text>
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -170,6 +143,7 @@ const styles = StyleSheet.create({
         shadowRadius: 5,
         elevation: 5,
     },
+
     buttonText: {
         color: 'white',
         fontSize: 16,
@@ -178,10 +152,17 @@ const styles = StyleSheet.create({
 
     resetPassword: {
         marginTop: 20,
+        backgroundColor: '#5D21A7',
         paddingVertical: 10,
-        borderColor: '#5D21A7',
-        borderWidth: 1,
         borderRadius: 5,
+        shadowColor: '#5D21A7',
+        shadowOffset: {
+            width: 0,
+            height: 2,
+        },
+        shadowOpacity: 1,
+        shadowRadius: 5,
+        elevation: 5,
     },
 
     resetPasswordText: {
@@ -189,20 +170,6 @@ const styles = StyleSheet.create({
         fontSize: 16,
         textAlign: 'center',
     },
-
-    senhaButton: {
-        marginTop: 20,
-        borderColor: '#5D21A7',
-        borderWidth: 1,
-        padding: 10,
-        borderRadius: 10,
-    },
-
-    senhaText: {
-        fontSize: 16,
-        textAlign: 'center',
-        color: '#fff'
-    },
 });
 
-export default LoginPage;
+export default Senha;

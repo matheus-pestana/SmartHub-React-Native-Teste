@@ -1,9 +1,8 @@
-// Import the functions you need from the SDKs you need
 import { initializeApp } from 'firebase/app';
-import { initializeAuth, getReactNativePersistence } from 'firebase/auth';
-// Add more imports as needed
+import { getAuth } from 'firebase/auth';
+import { getFirestore } from 'firebase/firestore';
+import { getStorage, ref, getDownloadURL } from 'firebase/storage';
 
-// Your web app's Firebase configuration
 const firebaseConfig = {
     apiKey: "AIzaSyC4ib3Ulgdpl3fyR0Y0xeZL0FTgqricMoU",
     authDomain: "smarthub-24bf7.firebaseapp.com",
@@ -13,9 +12,9 @@ const firebaseConfig = {
     appId: "1:1064690170638:web:89c8e4982dcd1895a3355f",
 };
 
-// Initialize Firebase
 const app = initializeApp(firebaseConfig);
-const auth = initializeAuth(app)
-// Add more initializations as needed
+const db = getFirestore(app);
+const auth = getAuth(app);
+const storage = getStorage(app);
 
-export { auth };
+export { db, auth, storage, ref, getDownloadURL };

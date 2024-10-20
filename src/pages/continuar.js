@@ -65,4 +65,16 @@ const styles = StyleSheet.create({
         gap: 20,
     },
 
+    content: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+
+    text: {
+        color: 'white',
+        fontSize: 40,
+        fontWeight: 'bold',
+    }
+
 })

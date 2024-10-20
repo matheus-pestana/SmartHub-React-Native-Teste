@@ -1,34 +1,65 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, Image, Dimensions, TouchableOpacity, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import { getAuth, signOut } from 'firebase/auth';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../../firebaseConfig';
 
 const windowWidth = Dimensions.get('window').width;
 const windowHeight = Dimensions.get('window').height;
+
 export default function Perfil() {
-
-    const [isLoggedIn, setIsLoggedIn] = useState(false);
+    const [userData, setUserData] = useState(null);
     const navigation = useNavigation();
+    const auth = getAuth();
+    const user = auth.currentUser;
 
-    const handleLogout = () => {
+    useEffect(() => {
+        const fetchUserData = async () => {
+            if (user) {
+                try {
+                    const userDoc = await getDoc(doc(db, 'users', user.uid));
+                    if (userDoc.exists()) {
+                        setUserData(userDoc.data());
+                    } else {
+                        console.log('Nenhum dado encontrado para este usuário.');
+                    }
+                } catch (error) {
+                    console.error('Erro ao buscar dados do usuário: ', error);
+                }
+            }
+        };
+
+        fetchUserData();
+    }, [user]);
+
+    const handleLogout = async () => {
         Alert.alert(
-            'Logout',
-            'Tem certeza de que deseja sair?',
+            'Confirmar Logout', // Título do alerta
+            'Você tem certeza que deseja sair?', // Mensagem do alerta
             [
                 {
                     text: 'Cancelar',
-                    style: 'cancel',
+                    onPress: () => console.log('Logout cancelado'), // Ação ao cancelar
+                    style: 'cancel', // Define o estilo de botão para "cancel"
                 },
                 {
-                    text: 'Sair',
-                    onPress: () => {
-                        setIsLoggedIn(false);
-                        console.log('Logout realizado com sucesso!');
-                        navigation.navigate('Login');
+                    text: 'Sim',
+                    onPress: async () => { // Ação ao confirmar
+                        try {
+                            await AsyncStorage.removeItem('@user_token');
+                            await signOut(getAuth());
+                            Alert.alert('Logout realizado com sucesso!');
+                            navigation.navigate('Login'); // Redireciona para a tela de login
+                        } catch (error) {
+                            console.error('Erro ao fazer logout: ', error);
+                        }
                     },
                 },
             ],
-            { cancelable: false }
+            { cancelable: false } // Não permite o usuário fechar o alerta tocando fora dele
         );
     };
 
@@ -52,32 +83,31 @@ export default function Perfil() {
                 />
                 <View style={styles.infos}>
                     <View style={styles.nome}>
-                        <Text style={styles.info}>Nome do Usuário:</Text>
-                        <Text style={styles.nomeUser}>Usuário</Text>
+                        <Text style={styles.info}>Nome:</Text>
+                        <Text style={styles.nomeUser}>{userData?.name || 'Carregando...'}</Text>
                     </View>
 
                     <View style={styles.email}>
-                        <Text style={styles.info}>Email do Usuário:</Text>
-                        <Text style={styles.emailUser}>usuario@gmail.com</Text>
+                        <Text style={styles.info}>Email:</Text>
+                        <Text style={styles.emailUser}>{userData?.email || 'Carregando...'}</Text>
                     </View>
 
                     <View style={styles.senha}>
-                        <Text style={styles.info}>Senha do Usuário:</Text>
+                        <Text style={styles.info}>Senha:</Text>
                         <Text style={styles.senhaUser}>******</Text>
                     </View>
                 </View>
             </View>
 
+
             <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
                 <Text style={styles.logoutText}>Sair</Text>
             </TouchableOpacity>
-
         </SafeAreaView>
-    )
+    );
 }
 
 const styles = StyleSheet.create({
-
     container: {
         paddingVertical: 20,
         backgroundColor: 'black',
@@ -161,7 +191,7 @@ const styles = StyleSheet.create({
     },
 
     info: {
-        fontSize: 20,
+        fontSize: 18,
         fontWeight: 'bold',
         color: 'white',
         padding: 10,
@@ -215,4 +245,5 @@ const styles = StyleSheet.create({
         fontSize: 16,
         color: 'white',
     },
-})
+
+});
