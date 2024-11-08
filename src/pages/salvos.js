@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, Image, ActivityIndicator, Pressable, TextInput, FlatList, Modal } from 'react-native';
+import { View, ScrollView, Text, StyleSheet, SafeAreaView, Image, ActivityIndicator, Pressable, TextInput, FlatList, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { getFirestore, doc, onSnapshot, arrayRemove, updateDoc } from 'firebase/firestore';
 import { Video } from 'expo-av';
@@ -147,12 +147,13 @@ export default function SalvosScreen() {
             <View style={styles.videos}>
                 {loading ? (
                     <ActivityIndicator size="large" color="#5D21A7" />
+                ) : videosSalvos.length === 0 ? (
+                    <Text style={styles.noVideosText}>Não há nenhum vídeo salvo</Text>
                 ) : (
                     <FlatList
                         data={videosSalvos}
                         keyExtractor={(item) => item.videoId}
                         renderItem={renderVideoItem}
-                    // contentContainerStyle={{ alignItems: 'center' }}
                     />
                 )}
             </View>
@@ -226,6 +227,13 @@ const styles = StyleSheet.create({
         color: 'white',
         textAlign: 'center',
         marginTop: 10,
+    },
+
+    noVideosText: {
+        color: 'white',
+        fontSize: 18,
+        textAlign: 'center',
+        marginTop: 20,
     },
 
     modalContainer: {

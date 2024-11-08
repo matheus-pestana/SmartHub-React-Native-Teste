@@ -4,8 +4,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { getAuth, signOut } from 'firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { doc, getDoc } from 'firebase/firestore';
-import { db } from '../../firebaseConfig';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import * as ImagePicker from 'expo-image-picker';
+import { uploadBytes, ref, getDownloadURL } from 'firebase/storage';
+import { db, storage } from '../../firebaseConfig';
 
 const windowWidth = Dimensions.get('window').width;
 const windowHeight = Dimensions.get('window').height;
@@ -37,30 +39,78 @@ export default function Perfil() {
 
     const handleLogout = async () => {
         Alert.alert(
-            'Confirmar Logout', // Título do alerta
-            'Você tem certeza que deseja sair?', // Mensagem do alerta
+            'Confirmar Logout',
+            'Você tem certeza que deseja sair?',
             [
                 {
                     text: 'Cancelar',
-                    onPress: () => console.log('Logout cancelado'), // Ação ao cancelar
-                    style: 'cancel', // Define o estilo de botão para "cancel"
+                    onPress: () => console.log('Logout cancelado'),
+                    style: 'cancel',
                 },
                 {
                     text: 'Sim',
-                    onPress: async () => { // Ação ao confirmar
+                    onPress: async () => {
                         try {
                             await AsyncStorage.removeItem('@user_token');
                             await signOut(getAuth());
                             Alert.alert('Logout realizado com sucesso!');
-                            navigation.navigate('Login'); // Redireciona para a tela de login
+                            navigation.navigate('Login');
                         } catch (error) {
                             console.error('Erro ao fazer logout: ', error);
                         }
                     },
                 },
             ],
-            { cancelable: false } // Não permite o usuário fechar o alerta tocando fora dele
+            { cancelable: false }
         );
+    };
+
+    const handleChangephotoURL = async () => {
+        if (!user) {
+            Alert.alert('Erro', 'Usuário não autenticado. Por favor, faça login novamente.');
+            navigation.navigate('Login');  // Redireciona para a tela de login
+            return;
+        }
+
+        const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (permission.granted) {
+            const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                allowsEditing: true,
+                aspect: [1, 1],
+                quality: 1,
+            });
+
+            if (!result.canceled) {
+                const sourceUri = result.assets[0].uri;
+
+                try {
+                    const imageRef = ref(storage, 'photoURLs/' + user.uid);
+                    const response = await fetch(sourceUri);
+                    const blob = await response.blob();
+                    await uploadBytes(imageRef, blob);
+
+                    const downloadURL = await getDownloadURL(imageRef);
+
+                    await updatephotoURLInFirestore(downloadURL);
+                } catch (error) {
+                    console.error('Erro ao alterar foto de perfil:', error);
+                }
+            }
+        } else {
+            Alert.alert('Permissão negada', 'Você precisa permitir o acesso à galeria para alterar a foto de perfil.');
+        }
+    };
+
+    const updatephotoURLInFirestore = async (downloadURL) => {
+        try {
+            const userRef = doc(db, 'users', user.uid);
+            await setDoc(userRef, { photoURL: downloadURL }, { merge: true });
+            setUserData((prevData) => ({ ...prevData, photoURL: downloadURL }));
+            Alert.alert('Foto de perfil atualizada com sucesso!');
+        } catch (error) {
+            console.error('Erro ao atualizar foto de perfil no Firestore:', error);
+        }
     };
 
     return (
@@ -77,10 +127,17 @@ export default function Perfil() {
             </View>
 
             <View style={styles.main}>
-                <Image
-                    style={styles.user}
-                    source={require('../assets/user.png')}
-                />
+                <TouchableOpacity onPress={handleChangephotoURL}>
+                    <Image
+                        style={styles.user}
+                        key={userData?.photoURL}  // Adiciona a URL da imagem como chave para forçar a re-renderização
+                        source={userData?.photoURL ? { uri: userData.photoURL } : require('../assets/user.png')}
+                    />
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.changePictureButton} onPress={handleChangephotoURL}>
+                    <Text style={styles.changePictureText}>Alterar Foto</Text>
+                </TouchableOpacity>
+
                 <View style={styles.infos}>
                     <View style={styles.nome}>
                         <Text style={styles.info}>Nome:</Text>
@@ -99,7 +156,6 @@ export default function Perfil() {
                 </View>
             </View>
 
-
             <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
                 <Text style={styles.logoutText}>Sair</Text>
             </TouchableOpacity>
@@ -117,12 +173,11 @@ const styles = StyleSheet.create({
     topBar: {
         flexDirection: 'row',
         justifyContent: 'center',
-        alignItems: 'center',
         width: '100%',
         height: '10%',
+        alignItems: 'center',
         borderBottomColor: '#5D21A7',
         borderBottomWidth: 1,
-        position: 'relative',
     },
 
     logo: {
@@ -159,11 +214,12 @@ const styles = StyleSheet.create({
     },
 
     user: {
-        width: '45%',
-        height: '30%',
-        borderRadius: 100,
+        width: 120,
+        height: 120,
+        borderRadius: 60,
         borderColor: '#5D21A7',
         borderWidth: 3,
+        resizeMode: 'cover',
     },
 
     logoutButton: {
@@ -246,4 +302,9 @@ const styles = StyleSheet.create({
         color: 'white',
     },
 
+    changePictureText: {
+        fontSize: 16,
+        color: '#5D21A7',
+        marginTop: 10,
+    },
 });

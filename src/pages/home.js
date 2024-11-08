@@ -1,16 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, Image, Dimensions, ActivityIndicator, Pressable, TextInput, FlatList, Modal, Alert } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, Image, Dimensions, ActivityIndicator, Pressable, TextInput, FlatList, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Video, ResizeMode } from 'expo-av';
 import { ref, listAll, getDownloadURL } from 'firebase/storage';
-import { getFirestore, doc, updateDoc, arrayUnion } from 'firebase/firestore';
-import { storage } from '../../firebaseConfig';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { db, storage } from '../../firebaseConfig';
 import * as ScreenOrientation from 'expo-screen-orientation';
-import { getAuth } from 'firebase/auth';
-
-const auth = getAuth(); // Inicializa o objeto de autenticação
-
 
 const windowWidth = Dimensions.get('window').width;
 const windowHeight = Dimensions.get('window').height;
@@ -23,71 +19,30 @@ export default function Home() {
   const [selectedVideo, setSelectedVideo] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [videos, setVideos] = useState([]);
-  const [item, setItem] = useState([]);
   const videoRefs = useRef([]);
   const route = useRoute();
-  const { category } = route.params || { category: 'todas' };
+  const { category = 'todas' } = route.params || {};
+
   const navigation = useNavigation();
 
-  useEffect(() => {
-    fetchVideos(category).then(() => {
-      const groupedVideos = groupVideosByCategory(allVideos);
-      setVideos(groupedVideos);
-    });
-  }, [category]);
-
-  const groupVideosByCategory = (videos) => {
-    return videos.reduce((acc, video) => {
-      (acc[video.category] = acc[video.category] || []).push(video);
-      return acc;
-    }, {});
-  };
-
-  const saveVideo = async (video) => {
-    const user = auth.currentUser;
-  
-    if (!user) {
-      console.error('Usuário não autenticado. Não é possível salvar o vídeo.');
-      return; // Sai da função se o usuário não estiver autenticado
-    }
-  
-    const userId = user.uid;
-    const db = getFirestore();
-    const userRef = doc(db, 'users', userId);
-  
-    try {
-      await updateDoc(userRef, {
-        salvos: arrayUnion({
-          videoId: video.name,
-          videoUrl: video.url,
-          title: video.name
-        })
-      });
-      Alert.alert('Vídeo salvo com sucesso!')
-      console.log('Vídeo salvo com sucesso!');
-    } catch (error) {
-      console.error('Erro ao salvar vídeo:', error);
-    }
-  };
-  
-
-  const fetchVideos = async (selectedCategory) => {
+  const fetchVideos = async (category = '') => {
     setLoading(true);
     try {
-      const categories = ['arte', 'matematica', 'portugues', 'fisica'];
+      const categories = ['arte', 'matematica', 'fisica'];
       let allFetchedVideos = [];
 
-      const categoriesToFetch = selectedCategory === 'todas' ? categories : [selectedCategory];
+      const categoriesToFetch = category ? [category] : categories;
 
       for (const category of categoriesToFetch) {
-        const listRef = ref(storage, `videos/${category}/`); // Acessa a pasta correta com base na categoria
+        const listRef = ref(storage, `videos/${category}/`);
         const res = await listAll(listRef);
 
         const videoUrls = await Promise.all(
           res.items.map(async (itemRef) => {
             try {
               const url = await getDownloadURL(itemRef);
-              return { name: itemRef.name, url, category }; // Adiciona a categoria aqui para uso posterior
+              const nameWithoutExtension = itemRef.name.replace(/\.[^/.]+$/, '');
+              return { name: nameWithoutExtension, url, category };
             } catch (error) {
               console.error(`Erro ao obter URL do vídeo ${itemRef.name}:`, error);
             }
@@ -98,11 +53,11 @@ export default function Home() {
       }
 
       setAllVideos(allFetchedVideos);
-      if (selectedCategory === 'todas') {
-        setVideos(allFetchedVideos);
+
+      if (category) {
+        setVideos(allFetchedVideos.filter((video) => video.category === category));
       } else {
-        // Filtra vídeos pela categoria que corresponde à pasta
-        setVideos(allFetchedVideos.filter(video => video.category === selectedCategory));
+        setVideos(allFetchedVideos);
       }
     } catch (error) {
       console.error('Erro ao carregar vídeos:', error);
@@ -111,8 +66,16 @@ export default function Home() {
   };
 
   useEffect(() => {
-    fetchVideos(category); // Carrega vídeos para a categoria selecionada
-  }, [category]);
+    fetchVideos();
+  }, []);
+
+  useEffect(() => {
+    if (category === 'todas') {
+      setVideos(allVideos);
+    } else {
+      setVideos(allVideos.filter(video => video.category === category));
+    }
+  }, [category, allVideos]);
 
   const handlePlayPause = async (index) => {
     const videoRef = videoRefs.current[index];
@@ -128,19 +91,13 @@ export default function Home() {
 
   const onFullscreenUpdate = async ({ fullscreenUpdate }) => {
     switch (fullscreenUpdate) {
-      case Video.FULLSCREEN_UPDATE_PLAYER_WILL_PRESENT:
-        // Desbloqueia e força a tela para o modo paisagem ao entrar no modo tela cheia
-        await ScreenOrientation.unlockAsync();
-        await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE);
-        break;
-      case Video.FULLSCREEN_UPDATE_PLAYER_DID_PRESENT:
+      case 0 || 1:
         await ScreenOrientation.unlockAsync();
         break;
-      case Video.FULLSCREEN_UPDATE_PLAYER_WILL_DISMISS:
-        // Ao sair do modo tela cheia, volta para o modo retrato
-        await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
-        break;
-      default:
+      case 2 || 3:
+        await ScreenOrientation.lockAsync(
+          ScreenOrientation.OrientationLock.PORTRAIT
+        );
         break;
     }
   };
@@ -150,27 +107,26 @@ export default function Home() {
     setModalVisible(true);
   };
 
-  const handleCloseModal = async () => {
+  const handleCloseModal = () => {
     setModalVisible(false);
     setSelectedVideo(null);
-    await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT);
   };
 
   const renderVideoPreview = ({ item, index }) => (
-    <View style={styles.thumbnailContainer}>
-      <Pressable onPress={() => handleOpenModal(index)} style={styles.thumbnailContainer}>
-        <Video
-          source={{ uri: item.url }}
-          style={styles.thumbnail}
-          resizeMode={ResizeMode.COVER}
-          shouldPlay={false}
-          isMuted={true}
-          useNativeControls={false}
-        />
-      </Pressable>
-    </View>
+    <Pressable onPress={() => handleOpenModal(index)} style={styles.thumbnailContainer}>
+      <Video
+        source={{ uri: item.url }}
+        style={styles.thumbnail}
+        resizeMode={ResizeMode.CONTAIN}
+        shouldPlay={false}
+        isMuted={true}
+        useNativeControls={false}
+      />
+      <Text style={styles.videoTitle} numberOfLines={1}>
+        {item.name}
+      </Text>
+    </Pressable>
   );
-
 
   const renderModal = () => (
     <Modal
@@ -191,11 +147,14 @@ export default function Home() {
                 onFullscreenUpdate={onFullscreenUpdate}
               />
               <Text style={styles.modalTitle}>{selectedVideo.name}</Text>
+
+              {/* Ícone de salvar no modal */}
               <Pressable onPress={() => saveVideo(selectedVideo)} style={styles.saveButton}>
                 <Ionicons name="bookmark-outline" size={24} color="white" />
               </Pressable>
+
               <Pressable onPress={handleCloseModal} style={styles.closeButton}>
-                <Ionicons name="close-circle-outline" size={32} color="white" />
+                <Ionicons name="close-circle" size={32} color="#5D21A7" />
               </Pressable>
             </>
           ) : (
@@ -206,6 +165,39 @@ export default function Home() {
     </Modal>
   );
 
+  const saveVideo = async (video) => {
+    const userId = 'usuario_id';  // Pegar o ID do usuário logado. Ajuste conforme sua autenticação.
+
+    // Referência para o documento do usuário na coleção 'users'
+    const userRef = doc(db, 'users', userId);
+
+    // Cria uma referência para o vídeo na subcoleção 'videos' do usuário
+    const videoRef = doc(userRef, 'videos', video.name);
+
+    // Verifica se o documento do usuário existe
+    const userSnap = await getDoc(userRef);
+
+    if (!userSnap.exists()) {
+      alert('Usuário não encontrado.');
+      return;
+    }
+
+    // Verifica se o vídeo já foi salvo
+    const videoSnap = await getDoc(videoRef);
+
+    if (!videoSnap.exists()) {
+      // Se o vídeo não existir, salva na subcoleção do usuário
+      await setDoc(videoRef, {
+        name: video.name,
+        url: video.url,
+        category: video.category,
+        savedAt: new Date().toISOString(), // Adiciona a data de salvamento
+      });
+      alert('Vídeo salvo com sucesso!');
+    } else {
+      alert('Este vídeo já foi salvo.');
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -243,9 +235,13 @@ export default function Home() {
       )}
 
       <View style={styles.container}>
+
         {loading ? (
+
           <ActivityIndicator size="large" color="#5D21A7" />
+
         ) : (
+
           <FlatList
             data={videos}
             renderItem={renderVideoPreview}
@@ -260,11 +256,16 @@ export default function Home() {
       </View>
 
       {renderModal()}
+
     </SafeAreaView>
+
   );
+
 }
 
 const styles = StyleSheet.create({
+
+
 
   controls: {
     position: 'absolute',
@@ -284,7 +285,7 @@ const styles = StyleSheet.create({
   },
 
   container: {
-    paddingVertical: 30,
+    paddingVertical: 20,
     backgroundColor: 'black',
     flex: 1,
   },
@@ -349,23 +350,34 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
 
+  videoTitle: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginTop: 5,
+    paddingHorizontal: 5,
+  },
+
   thumbnailContainer: {
     marginHorizontal: 10,
-    width: 150,
-    height: 250,
+    width: windowWidth * 0.45,
+    height: windowWidth * 0.25 + 30,
     borderRadius: 10,
     overflow: 'hidden',
-    shadowColor: '#222',
+    backgroundColor: '#222',
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.8,
     shadowRadius: 2,
     elevation: 5,
     margin: 10,
+    alignItems: 'center',
   },
 
   thumbnail: {
     width: '100%',
-    height: '100%',
+    height: windowWidth * 0.25,  // Define uma altura proporcional
     borderWidth: 1,
     borderColor: '#5D21A7',
     borderRadius: 10,
@@ -376,6 +388,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'rgba(0, 0, 0, 0.8)',
+  },
+
+  saveButton: {
+    position: 'absolute',
+    top: 10,
+    left: 10,
+    borderColor: '#5D21A7',
+    borderWidth: 2,
+    borderRadius: 999,
+    backgroundColor: '#5D21A7',
+    padding: 5,
   },
 
   modalContent: {
@@ -400,27 +423,14 @@ const styles = StyleSheet.create({
     padding: 10,
   },
 
-  saveButton: {
-    position: 'absolute',
-    top: 10,
-    left: 10,
-    borderRadius: 999,
-    backgroundColor: '#5D21A7',
-    padding: 5,
-    borderRadius: 999,
-    borderWidth: 1,
-    color: 'white',
-  },
-
   closeButton: {
     position: 'absolute',
     top: 10,
     right: 10,
+    borderColor: '#5D21A7',
+    borderWidth: 2,
     borderRadius: 999,
-    backgroundColor: '#5D21A7',
-    borderRadius: 999,
-    borderWidth: 1,
-    color: 'white',
+    // padding: 10,
   },
 
   videoList: {

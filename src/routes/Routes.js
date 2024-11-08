@@ -13,64 +13,46 @@ import Senha from '../pages/senha.js'
 
 const Tab = createBottomTabNavigator();
 
-function MyTabs() {
+function MyTabs({ category }) {
     return (
         <Tab.Navigator
-            initialRouteName='Home'
+            initialRouteName="Home"
             screenOptions={{
                 tabBarStyle: { backgroundColor: 'black', borderTopColor: '#5D21A7' },
                 tabBarActiveTintColor: "#5D21A7",
                 tabBarInactiveTintColor: "#5D21A7",
             }}>
-            <Tab.Screen name="Home" component={Home}
+            <Tab.Screen
+                name="Home"
+                children={() => <Home category={category} />} // Passa a categoria para o Home
                 options={{
                     headerShown: false,
                     tabBarIcon: ({ focused, size, color }) => {
                         if (focused) {
-                            return (<Ionicons
-                                size={size}
-                                color={color}
-                                name='home-sharp'
-                            />);
-                        } return (<Ionicons
-                            size={size}
-                            color={color}
-                            name='home-outline'
-                        />)
+                            return (<Ionicons size={size} color={color} name='home-sharp' />);
+                        } return (<Ionicons size={size} color={color} name='home-outline' />);
                     }
                 }} />
-            <Tab.Screen name="Continuar" component={Continuar}
+            <Tab.Screen
+                name="Continuar"
+                component={Continuar}
                 options={{
                     headerShown: false,
                     tabBarIcon: ({ focused, size, color }) => {
                         if (focused) {
-                            return (<Ionicons
-                                size={size}
-                                color={color}
-                                name='play-circle'
-                            />);
-                        } return (<Ionicons
-                            size={size}
-                            color={color}
-                            name='play-circle-outline'
-                        />)
+                            return (<Ionicons size={size} color={color} name='play-circle' />);
+                        } return (<Ionicons size={size} color={color} name='play-circle-outline' />);
                     }
                 }} />
-            <Tab.Screen name="Salvos" component={Salvos}
+            <Tab.Screen
+                name="Salvos"
+                component={Salvos}
                 options={{
                     headerShown: false,
                     tabBarIcon: ({ focused, size, color }) => {
                         if (focused) {
-                            return (<Ionicons
-                                size={size}
-                                color={color}
-                                name='bookmark'
-                            />);
-                        } return (<Ionicons
-                            size={size}
-                            color={color}
-                            name='bookmark-outline'
-                        />)
+                            return (<Ionicons size={size} color={color} name='bookmark' />);
+                        } return (<Ionicons size={size} color={color} name='bookmark-outline' />);
                     }
                 }} />
         </Tab.Navigator>
@@ -81,51 +63,42 @@ const Drawer = createDrawerNavigator();
 
 function MyDrawer() {
     return (
-        <Drawer.Navigator initialRouteName="Main"
-        screenOptions={{
-            drawerStyle: {
-                backgroundColor: '#000',
-                borderRightColor: '#5D21A7',
-                borderWidth: 1,
-            },
-            drawerLabelStyle: {
-                fontSize: 18,
-                fontWeight: 'bold',
-                color: '#5D21A7',
-                borderColor: '#5D21A7',
-                borderBottomWidth: 1,
-                padding: 5,
-            }
-        }
-        }>
+        <Drawer.Navigator
+            initialRouteName="Main"
+            screenOptions={{
+                drawerStyle: {
+                    backgroundColor: '#000',
+                    borderRightColor: '#5D21A7',
+                    borderWidth: 1,
+                },
+                drawerLabelStyle: {
+                    fontSize: 18,
+                    fontWeight: 'bold',
+                    color: '#5D21A7',
+                    borderColor: '#5D21A7',
+                    borderBottomWidth: 1,
+                    padding: 5,
+                }
+            }}
+        >
             <Drawer.Screen
                 name="Todas"
-                component={MyTabs}
-                initialParams={{ category: 'todas' }}
+                children={() => <MyTabs category="todas" />}
                 options={{ title: 'Todas as Categorias', headerShown: false }}
             />
             <Drawer.Screen
                 name="Arte"
-                component={MyTabs}
-                initialParams={{ category: 'arte' }}
+                children={() => <MyTabs category="arte" />}
                 options={{ title: 'Arte', headerShown: false }}
             />
             <Drawer.Screen
                 name="Matemática"
-                component={MyTabs}
-                initialParams={{ category: 'matematica' }}
+                children={() => <MyTabs category="matematica" />}
                 options={{ title: 'Matemática', headerShown: false }}
             />
             <Drawer.Screen
-                name="Português"
-                component={MyTabs}
-                initialParams={{ category: 'portugues' }}
-                options={{ title: 'Português', headerShown: false }}
-            />
-            <Drawer.Screen
                 name="Física"
-                component={MyTabs}
-                initialParams={{ category: 'fisica' }}
+                children={() => <MyTabs category="fisica" />}
                 options={{ title: 'Física', headerShown: false }}
             />
         </Drawer.Navigator>
@@ -150,3 +123,12 @@ export default function MyStack() {
         </Stack.Navigator>
     );
 }
+
+const CombinedScreen = () => {
+    return (
+      <View style={{ flex: 1 }}>
+        <MyTabs />
+        <Home />
+      </View>
+    );
+  };
